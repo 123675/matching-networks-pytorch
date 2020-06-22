@@ -12,14 +12,16 @@ import torch
 import torch.nn as nn
 import math
 import numpy as np
-import torch.nn.functional as F
+import torch.nn.functional as F     
 from torch.autograd import Variable
 
 
-def convLayer(in_channels, out_channels, keep_prob=0.0):
+def convLayer(in_channels, out_channels, keep_prob=0.0):  #keep_prob=0.0与dropout有关 具体没了解  训练时删除一部分训练样本
+                                                            #，删除的比例就是它，防止过拟合
     """3*3 convolution with padding,ever time call it the output size become half"""
-    cnn_seq = nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+    cnn_seq = nn.Sequential(                                #一个有序的容器，神经网络模块将按照在传入构造器的顺序依次被添加到计算图中执行，
+                                                            #同时以神经网络模块为元素的有序字典也可以作为传入参数。
+        nn.Conv2d(in_channels, out_channels, 3, 1, 1), #nn.Conv2d(self, in_channels, out_channels, kernel_size, stride=1, padding=0）
         nn.ReLU(True),
         nn.BatchNorm2d(out_channels),
         nn.MaxPool2d(kernel_size=2, stride=2),
@@ -29,8 +31,8 @@ def convLayer(in_channels, out_channels, keep_prob=0.0):
 
 
 class Classifier(nn.Module):
-    def __init__(self, layer_size=64, num_channels=1, keep_prob=1.0, image_size=28):
-        super(Classifier, self).__init__()
+    def __init__(self, layer_size=64, num_channels=1, keep_prob=1.0, image_size=28):  #训练时删除一部分训练样本，删除的比例就是它，防止过拟合
+        super(Classifier, self).__init__()         
         """
         Build a CNN to produce embeddings
         :param layer_size:64(default)
@@ -56,7 +58,8 @@ class Classifier(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        x = x.view(x.size()[0], -1)
+        x = x.view(x.size()[0], -1)  #一般出现在model类的forward函数中，具体位置一般都是在调用分类器之前。分类器是一个简单的nn.Linear()结构，
+                                     # 输入输出都是维度为一的值，
         return x
 
 
@@ -66,7 +69,7 @@ class AttentionalClassify(nn.Module):
 
     def forward(self, similarities, support_set_y):
         """
-        Products pdfs over the support set classes for the target set image.
+        Products pdfs over the support set classes for the target set image. #在支持集上为目标函数产生概率密度
         :param similarities: A tensor with cosine similarites of size[batch_size,sequence_length]
         :param support_set_y:[batch_size,sequence_length,classes_num]
         :return: Softmax pdf shape[batch_size,classes_num]
@@ -74,7 +77,7 @@ class AttentionalClassify(nn.Module):
         softmax = nn.Softmax()
         softmax_similarities = softmax(similarities)
         preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
-        return preds
+        return preds   
 
 
 class DistanceNetwork(nn.Module):
@@ -95,7 +98,7 @@ class DistanceNetwork(nn.Module):
         eps = 1e-10
         similarities = []
         for support_image in support_set:
-            sum_support = torch.sum(torch.pow(support_image, 2), 1)
+            sum_support = torch.sum(torch.pow(support_image, 2), 1)  #对输入input按元素求exponent次幂值
             support_manitude = sum_support.clamp(eps, float("inf")).rsqrt()
             dot_product = input_image.unsqueeze(1).bmm(support_image.unsqueeze(2)).squeeze()
             cosine_similarity = dot_product * support_manitude
